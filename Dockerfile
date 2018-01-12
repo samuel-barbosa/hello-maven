@@ -1,0 +1,26 @@
+FROM maven:3.5.2-jdk-8-alpine as DEPENDENCIES
+ARG VERSION
+ARG APP_PATH
+ENV MAVEN_STAGE_OPTIONS='-B install -DskipTests dependency:go-offline'
+ENV APP_VERSION=$VERSION
+RUN mkdir -p $APP_PATH
+WORKDIR $APP_PATH
+ADD ./src/ $APP_PATH
+RUN mvn $MAVEN_STAGE_OPTIONS && mv /root/.m2/repository $APP_PATH
+
+FROM maven:3.5.2-jdk-8-alpine as TESTE
+ARG VERSION
+ARG APP_PATH
+ENV MAVEN_STAGE_OPTIONS='-B package'
+ENV APP_VERSION=$VERSION
+RUN mkdir -p $APP_PATH
+WORKDIR $APP_PATH
+COPY --from=DEPENDENCIES $APP_PATH/ $APP_PATH
+RUN cp -R $APP_PATH/repository /root/.m2 && mvn $MAVEN_STAGE_OPTIONS
+
+FROM java:8-jdk-alpine as APP
+ARG VERSION
+ARG APP_PATH
+ENV APP_VERSION=$VERSION
+COPY --from=TESTE $APP_PATH/target/hello-world-$VERSION-SNAPSHOT.jar /
+ENTRYPOINT java -jar /hello-world-$APP_VERSION-SNAPSHOT.jar
